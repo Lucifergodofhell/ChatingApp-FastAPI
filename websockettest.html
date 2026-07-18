@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Chat Tester</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #e5ddd5; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        
+        .app-container { width: 100%; max-width: 450px; background: #fff; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); overflow: hidden; display: flex; flex-direction: column; height: 85vh; }
+        
+        /* --- Login Screen --- */
+        #loginScreen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 20px; text-align: center; background: #f0f2f5; }
+        #loginScreen h2 { margin-bottom: 20px; color: #333; }
+        .input-group { width: 100%; margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; text-align: left; }
+        .input-group input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; outline: none; }
+        .btn-connect { width: 100%; padding: 12px; background-color: #00a884; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-connect:hover { background-color: #008f6f; }
+
+        /* --- Chat Screen --- */
+        #chatScreen { display: none; flex-direction: column; height: 100%; }
+        
+        .chat-header { background-color: #00a884; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .chat-header .my-info { font-weight: bold; font-size: 18px; }
+        
+        .receiver-bar { background-color: #f0f2f5; padding: 10px 15px; display: flex; align-items: center; border-bottom: 1px solid #ddd; }
+        .receiver-bar label { font-weight: bold; margin-right: 10px; color: #555; }
+        .receiver-bar input { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 5px; outline: none; }
+
+        .chat-box { flex: 1; padding: 20px; overflow-y: auto; background-color: #e5ddd5; display: flex; flex-direction: column; gap: 10px; }
+        
+        /* Chat Bubbles */
+        .message { max-width: 75%; padding: 10px 15px; border-radius: 12px; position: relative; font-size: 15px; line-height: 1.4; word-wrap: break-word; }
+        .msg-me { align-self: flex-end; background-color: #d9fdd3; border-bottom-right-radius: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .msg-them { align-self: flex-start; background-color: #ffffff; border-bottom-left-radius: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .msg-sender-name { font-size: 12px; font-weight: bold; color: #075e54; margin-bottom: 3px; display: block; }
+        .msg-time { font-size: 10px; color: #999; float: right; margin-left: 10px; margin-top: 5px; }
+
+        .input-bar { background-color: #f0f2f5; padding: 15px; display: flex; gap: 10px; align-items: center; }
+        .input-bar input { flex: 1; padding: 12px; border: none; border-radius: 20px; outline: none; font-size: 15px; }
+        .btn-send { background-color: #00a884; color: white; border: none; width: 45px; height: 45px; border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center; font-size: 18px; }
+        .btn-send:hover { background-color: #008f6f; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    
+    <!-- 1. LOGIN SCREEN -->
+    <div id="loginScreen">
+        <h2>🔥 App Connection</h2>
+        <div class="input-group">
+            <label>Meri User ID (Sender):</label>
+            <input type="number" id="myUserId" placeholder="e.g., 1 (Your ID)" />
+        </div>
+        <button class="btn-connect" onclick="connectToServer()">Server Se Connect Kar 🚀</button>
+    </div>
+
+    <!-- 2. CHAT SCREEN -->
+    <div id="chatScreen">
+        
+        <!-- Header: Dikhaega tu kaun hai -->
+        <div class="chat-header">
+            <div class="my-info" id="displayMyId">My ID: ?</div>
+            <button onclick="location.reload()" style="background: none; border: none; color: white; cursor: pointer; font-weight: bold;">Disconnect</button>
+        </div>
+
+        <!-- Receiver Setup: Kisko bhejna hai -->
+        <div class="receiver-bar">
+            <label>Dost Ki ID (Receiver):</label>
+            <input type="number" id="receiverId" placeholder="e.g., 2" />
+        </div>
+
+        <!-- Chat Area -->
+        <div class="chat-box" id="messagesBox">
+            <!-- Messages yahan aayenge -->
+        </div>
+
+        <!-- Type Message Area -->
+        <div class="input-bar">
+            <input type="text" id="messageInput" placeholder="Message type kar bhai..." autocomplete="off" onkeypress="handleEnter(event)" />
+            <button class="btn-send" onclick="sendMessage()">➤</button>
+        </div>
+        
+    </div>
+
+</div>
+
+<script>
+    let ws = null;
+    let myId = null;
+
+    function connectToServer() {
+        const idInput = document.getElementById("myUserId").value;
+        if (!idInput) return alert("Bhai, apni ID daalna zaroori hai!");
+        
+        myId = idInput;
+        
+        // Backend se WebSocket connection
+        ws = new WebSocket(`ws://localhost:8000/chat/${myId}`);
+        
+        ws.onopen = function() {
+            // Screen Switch
+            document.getElementById("loginScreen").style.display = "none";
+            document.getElementById("chatScreen").style.display = "flex";
+            document.getElementById("displayMyId").innerText = `Meri ID: ${myId}`;
+        };
+
+        ws.onmessage = function(event) {
+            try {
+                // Incoming message format: {"sender_id": 1, "message": "hello", ...}
+                const data = JSON.parse(event.data);
+                appendMessage(data.sender_id, data.message, "them", data.created_at);
+            } catch(e) {
+                console.error("JSON parse error:", e);
+                appendMessage("Server", event.data, "them");
+            }
+        };
+
+        ws.onclose = function() {
+            alert("Connection toot gaya! Backend check kar.");
+            location.reload();
+        };
+    }
+
+    function sendMessage() {
+        if (!ws) return;
+        
+        const receiverId = document.getElementById("receiverId").value;
+        const msgText = document.getElementById("messageInput").value;
+        
+        if (!receiverId) return alert("Upar dost ki ID daal kisko bhejna hai!");
+        if (!msgText.trim()) return;
+
+        // Tera backend yehi exact format mangta hai
+        const payload = {
+            receiver_id: parseInt(receiverId),
+            content: msgText
+        };
+        
+        // Backend ko JSON string bhej rahe hain
+        ws.send(JSON.stringify(payload));
+        
+        // Screen par khud ka message right side show karo
+        const now = new Date();
+        const timeStr = `${now.getHours()}:${now.getMinutes()}`;
+        appendMessage(myId, msgText, "me", timeStr);
+        
+        // Input box clear kar do
+        document.getElementById("messageInput").value = ''; 
+    }
+
+    // Helper: Screen par bubble add karne ke liye
+    function appendMessage(senderId, text, type, time = "") {
+        const box = document.getElementById('messagesBox');
+        const div = document.createElement('div');
+        
+        div.className = type === "me" ? "message msg-me" : "message msg-them";
+        
+        let html = '';
+        if (type === "them") {
+            html += `<span class="msg-sender-name">User ID: ${senderId}</span>`;
+        }
+        html += text;
+        if (time) {
+            html += `<span class="msg-time">${time}</span>`;
+        }
+        
+        div.innerHTML = html;
+        box.appendChild(div);
+        
+        // Auto scroll to bottom
+        box.scrollTop = box.scrollHeight;
+    }
+
+    // Enter press karne par message send ho jaye
+    function handleEnter(e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    }
+</script>
+
+</body>
+</html>
